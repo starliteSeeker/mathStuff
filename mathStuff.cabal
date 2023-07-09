@@ -22,7 +22,7 @@ maintainer:         lee3445@purdue.edu
 extra-source-files:
 
 library
-    exposed-modules:  Algebra
+    exposed-modules:  Algebra Sequence
 
     -- Modules included in this library but not exported.
     -- other-modules:
