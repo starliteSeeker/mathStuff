@@ -1,8 +1,8 @@
 module Sequence where
 
 import Control.Applicative
-import Data.Maybe (fromJust)
 import Data.List (find)
+import Data.Maybe (fromJust)
 
 cool = 3
 
@@ -27,7 +27,7 @@ prime = 2 : 3 : 5 : iterate prime' 7
 -- | Catalan numbers
 -- a(n) = 2*(2*n-1)*a(n-1)/(n+1) with a(0) = 1 - OEIS A000108
 --
--- >>> take 10 $ catalan 
+-- >>> take 10 $ catalan
 -- [1,1,2,5,14,42,132,429,1430,4862]
 catalan :: [Int]
-catalan = 1 : map (\n -> (4 * n - 2) * (catalan !! (n-1)) `div` (n + 1)) [1..]
+catalan = 1 : map (\n -> (4 * n - 2) * (catalan !! (n - 1)) `div` (n + 1)) [1 ..]

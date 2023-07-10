@@ -62,7 +62,6 @@ exEuclid a b
 --
 -- >>> fst $ runWriter $ runMaybeT $ inverse 2 5
 -- Just 3
---
 -- >>> fst $ runWriter $ runMaybeT $ inverse 2 4
 -- Nothing
 inverse :: Int -> Int -> MaybeT (Writer (DiffList String)) Int
