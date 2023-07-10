@@ -22,7 +22,7 @@ maintainer:         lee3445@purdue.edu
 extra-source-files:
 
 library
-    exposed-modules:  Algebra Sequence
+    exposed-modules:  Algebra Sequence Logic
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -30,6 +30,7 @@ library
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:    base ^>=4.16.4.0,
-        transformers >= 0.5.6 && < 0.6
+        transformers >= 0.5.6 && < 0.6,
+        megaparsec >= 9.4.1 && < 9.5,
     hs-source-dirs:   src
     default-language: Haskell2010
