@@ -37,7 +37,7 @@ siern n x = padLeft $ map g $ take h $ iterate ((1 :) . f) [1]
     -- pad with spaces
     padLeft = zipWith (++) (map (`replicate` ' ') [h - 1, h - 2 .. 0])
 
--- Inspired by https://youtu.be/JbfhzlMk2eY
+-- | Inspired by https://youtu.be/JbfhzlMk2eY
 --
 -- >>> putStrLn $ unlines $ hitomezashi 20 10 1
 --  |_|  _  |_| |_|  _   _| |_   _  |_  |_|
@@ -67,3 +67,52 @@ hitomezashi width height seed = pattern a b
     -- merge vertical and horizontal lines
     merge (a : as) (b : bs) = a : b : merge as bs
     merge _ _ = []
+
+-- | https://en.wikipedia.org/wiki/Rule_110
+data Cells c = Cells [c] c [c]
+
+instance Functor Cells where
+  fmap f (Cells ls c rs) = Cells (fmap f ls) (f c) (fmap f rs)
+
+-- seed is the pattern of the top row
+--
+-- >>> putStrLn $ unlines $ rule110 36 20 0x123456789
+--    @  @   @@ @   @ @ @@  @@@@   @  @
+--   @@ @@  @@@@@  @@@@@@@ @@  @  @@ @@
+--  @@@@@@ @@   @ @@     @@@@ @@ @@@@@@
+-- @@    @@@@  @@@@@    @@  @@@@@@    @
+-- @@   @@  @ @@   @   @@@ @@    @   @@
+--  @  @@@ @@@@@  @@  @@ @@@@   @@  @@@
+-- @@ @@ @@@   @ @@@ @@@@@  @  @@@ @@ @
+--  @@@@@@ @  @@@@ @@@   @ @@ @@ @@@@@@
+-- @@    @@@ @@  @@@ @  @@@@@@@@@@    @
+-- @@   @@ @@@@ @@ @@@ @@        @   @@
+--  @  @@@@@  @@@@@@ @@@@       @@  @@@
+-- @@ @@   @ @@    @@@  @      @@@ @@ @
+--  @@@@  @@@@@   @@ @ @@     @@ @@@@@@
+-- @@  @ @@   @  @@@@@@@@    @@@@@    @
+--  @ @@@@@  @@ @@      @   @@   @   @@
+-- @@@@   @ @@@@@@     @@  @@@  @@  @@@
+-- @  @  @@@@    @    @@@ @@ @ @@@ @@ @
+-- @ @@ @@  @   @@   @@ @@@@@@@@ @@@@@@
+-- @@@@@@@ @@  @@@  @@@@@      @@@    @
+-- @     @@@@ @@ @ @@   @     @@ @   @@
+rule110 :: Int -> Int -> Integer -> [String]
+rule110 width height seed = fmap showCells $ take height $ iterate (fmap extract . duplicate) seedCells
+  where
+    -- create starting cells from seed
+    f 0 _ = []
+    f w s = odd s : f (w - 1) (div s 2)
+    seedCells = let c : cs = f width seed in Cells (cs ++ repeat False) c (repeat False)
+    -- print Cells
+    showCells (Cells ls c _) =
+      let p x = if x then '@' else ' '
+       in fmap p (reverse (take (width - 1) ls)) ++ [p c]
+    -- comonad-y functinos
+    duplicate :: Cells Bool -> Cells (Cells Bool)
+    duplicate cs = Cells (tail $ iterate shiftRight cs) cs (tail $ iterate shiftLeft cs)
+      where
+        shiftLeft (Cells ls c (r : rs)) = Cells (c : ls) r rs
+        shiftRight (Cells (l : ls) c rs) = Cells ls l (c : rs)
+    extract :: Cells Bool -> Bool
+    extract (Cells (l : ls) c (r : rs)) = not (l && c && r) && (c || r)
