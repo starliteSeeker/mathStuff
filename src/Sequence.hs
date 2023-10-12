@@ -6,13 +6,35 @@ import Data.Maybe (fromJust)
 
 -- * Sequences
 
+-- | Metallonacci numbers
+-- a_n = a_(n-1) * m + a_(n - 2)
+-- offset 0
+--
+-- >>> take 10 $ mfib 2
+-- [0,1,2,5,12,29,70,169,408,985]
+mfib :: Int -> [Int]
+mfib m = 0 : 1 : zipWith (+) (fmap (* m) $ drop 1 $ mfib m) (mfib m)
+
 -- | Fibonacci numbers
+-- a_n = a_ (n - 1) + a_ (n - 2)
+-- Metallonacci numbers where m = 1
 -- offset 0
 --
 -- >>> take 10 $ fib
 -- [0,1,1,2,3,5,8,13,21,34]
 fib :: [Int]
-fib = 0 : 1 : getZipList ((+) <$> ZipList (drop 1 fib) <*> ZipList fib)
+fib = mfib 1
+
+-- | N-bonacci numbers
+-- starts with n - 1 zeros followed by a one
+-- each term is the sum of the previous n terms
+-- https://oeis.org/wiki/N-bonacci_numbers
+--
+-- >>> take 10 $ nfib 3
+-- [0,0,1,1,2,4,7,13,24,44]
+nfib :: Int -> [Int]
+nfib 0 = repeat 0
+nfib n = replicate (n - 1) 0 ++ [1] ++ foldr1 (zipWith (+)) (take n $ iterate (drop 1) (nfib n))
 
 -- | Prime numbers
 -- offset 1
