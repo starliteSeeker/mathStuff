@@ -1,5 +1,6 @@
-module Art where
+module Art (sier, siern, hitomezashi, binaryWave, rule110) where
 
+import Data.Bits
 import System.Random
 
 -- >>> putStrLn $ unlines $ sier 3
@@ -68,12 +69,38 @@ hitomezashi width height seed = pattern a b
     merge (a : as) (b : bs) = a : b : merge as bs
     merge _ _ = []
 
--- | https://en.wikipedia.org/wiki/Rule_110
+-- Turn range 0..i to array of bools
+binaryRep :: Int -> [[Bool]]
+binaryRep i = (<$> [0 .. i]) <$> fmap isSet [0 .. height - 1]
+  where
+    isSet n x = (1 .<<. n) .&. x /= 0 -- is the nth bit set in x
+    height = bits i
+    bits 0 = 0
+    bits x = 1 + bits (x .>>. 1)
+
+-- | Inspired by SPI/I2C diagrams, looks...meh
+-- >>> putStrLn $ unlines $ binaryWave 31
+-- _/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾\_/‾‾
+-- ___/‾‾‾\___/‾‾‾\___/‾‾‾\___/‾‾‾\___/‾‾‾\___/‾‾‾\___/‾‾‾\___/‾‾‾‾
+-- _______/‾‾‾‾‾‾‾\_______/‾‾‾‾‾‾‾\_______/‾‾‾‾‾‾‾\_______/‾‾‾‾‾‾‾‾
+-- _______________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_______________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+-- _______________________________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+binaryWave :: Int -> [String]
+binaryWave i = map drawLine $ binaryRep i
+  where
+    drawLine (b : bb : bs) = drawSegment b bb ++ drawLine (bb : bs)
+    drawLine [b] = drawSegment b b
+    drawSegment False False = "__"
+    drawSegment False True = "_/"
+    drawSegment True False = "‾\\"
+    drawSegment True True = "‾‾"
+
 data Cells c = Cells [c] c [c]
 
 instance Functor Cells where
   fmap f (Cells ls c rs) = Cells (fmap f ls) (f c) (fmap f rs)
 
+-- | https://en.wikipedia.org/wiki/Rule_110
 -- seed is the pattern of the top row
 --
 -- >>> putStrLn $ unlines $ rule110 36 20 0x123456789
