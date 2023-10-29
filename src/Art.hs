@@ -69,6 +69,30 @@ hitomezashi width height seed = pattern a b
     merge (a : as) (b : bs) = a : b : merge as bs
     merge _ _ = []
 
+-- | Hexoganol tiling
+--
+-- >>> putStrLn $ unlines $ hexTile 5 3
+--  __    __    __
+-- /  \__/  \__/  \
+-- \__/  \__/  \__/
+-- /  \__/  \__/  \
+-- \__/  \__/  \__/
+-- /  \__/  \__/  \
+-- \__/  \__/  \__/
+--    \__/  \__/
+hexTile :: Int -> Int -> [String]
+hexTile a b
+  | a <= 0 || b <= 0 = [[]]
+hexTile width height = [top] ++ process (mconcat (replicate height middle)) ++ [bottom]
+  where
+    top = foldMap (\a -> if odd a then " __ " else "  ") [1 .. width]
+    middle =
+      [ '/' : foldMap (\a -> if odd a then "  \\" else "__/") [1 .. width],
+        '\\' : foldMap (\a -> if odd a then "__/" else "  \\") [1 .. width]
+      ]
+    bottom = ' ' : foldMap (\a -> if odd a then "  " else "\\__/") [1 .. width]
+    process = if odd width then id else (\(s : ss) -> init s : ss) -- take away extra '\'
+
 -- Turn range 0..i to array of bools
 binaryRep :: Int -> [[Bool]]
 binaryRep i = (<$> [0 .. i]) <$> fmap isSet [0 .. height - 1]
