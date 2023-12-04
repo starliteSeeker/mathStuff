@@ -11,6 +11,7 @@ import Control.Monad.Trans.Writer
   )
 import Data.Bifunctor (second)
 import Data.List
+import qualified Data.Map as M
 import Data.Ratio
 import qualified Data.Set as S
 
@@ -81,45 +82,46 @@ inverse a m = do
 type Val = Writer Expr Rational
 
 data Expr
-  = AddSub (S.Set Expr) (S.Set Expr)
-  | MulDiv (S.Set Expr) (S.Set Expr)
+  = AddSub (M.Map Expr Int) (M.Map Expr Int)
+  | MulDiv (M.Map Expr Int) (M.Map Expr Int)
   | R Integer
   | Empty
   deriving (Eq, Ord)
 
+fromFreq :: (Foldable t) => t (b, Int) -> [b]
+fromFreq = concatMap (uncurry (flip replicate))
+
 instance Show Expr where
   show Empty = "EMPTY"
   show (R r) = show r
-  show (AddSub a b)
-    | S.size a == 1 && S.null b = show a
-    | otherwise = "(" ++ a' ++ if S.null b then [] else b' ++ ")"
+  show (AddSub a b) =
+    "(" ++ a' ++ (if M.null b then [] else b') ++ ")"
     where
-      a' = intercalate "+" $ map show $ S.elems a
-      b' = '-' : intercalate "-" (map show $ S.elems b)
-  show (MulDiv a b)
-    | S.size a == 1 && S.null b = show a
-    | otherwise = "(" ++ a' ++ if S.null b then [] else b' ++ ")"
+      a' = intercalate "+" $ map show $ fromFreq $ M.toList a
+      b' = '-' : intercalate "-" (map show $ fromFreq $ M.toList b)
+  show (MulDiv a b) =
+    "(" ++ a' ++ (if M.null b then [] else b') ++ ")"
     where
-      a' = intercalate "*" $ map show $ S.elems a
-      b' = '-' : intercalate "/" (map show $ S.elems b)
+      a' = intercalate "*" $ map show $ fromFreq $ M.toList a
+      b' = '/' : intercalate "/" (map show $ fromFreq $ M.toList b)
 
 instance Semigroup Expr where
   Empty <> x = x
   x <> Empty = x
-  AddSub a b <> AddSub c d = AddSub (S.union a c) (S.union b d)
-  MulDiv a b <> MulDiv c d = MulDiv (S.union a c) (S.union b d)
-  x <> MulDiv c d = MulDiv (S.insert x c) d
-  x <> AddSub c d = AddSub (S.insert x c) d
+  AddSub a b <> AddSub c d = AddSub (M.unionWith (+) a c) (M.unionWith (+) b d)
+  MulDiv a b <> MulDiv c d = MulDiv (M.unionWith (+) a c) (M.unionWith (+) b d)
+  x <> MulDiv c d = MulDiv (M.insertWith (+) x 1 c) d
+  x <> AddSub c d = AddSub (M.insertWith (+) x 1 c) d
   _ <> R _ = undefined
 
 instance Monoid Expr where
   mempty = Empty
 
 -- | Make the target number using all given numbers
-countdown :: [Integer] -> Integer -> [String]
-countdown given target =
+-- countdown :: [Integer] -> Integer -> [String]
+countdown' given target =
   let seed = map (\v -> tell (R v) >> return (v % 1)) given
-   in map show $ filter (\a -> fst (head a) == fromIntegral target) $ map (map runWriter) $ iterate (>>= (concatMap tt . takePairs)) [seed] !! (length given - 1)
+   in S.toList $ S.map show $ S.filter ((== target) . fst . head) $ S.map (map runWriter) $ iterate (S.unions . S.map (S.fromList . concatMap tt . takePairs)) (S.singleton seed) !! (length given - 1)
   where
     takeOne :: [Val] -> [(Val, [Val])]
     takeOne (l : ls) = (l, ls) : map (second (l :)) (takeOne ls)
@@ -145,19 +147,19 @@ countdown given target =
     addW = binOp '+' (+) f
       where
         f x@(AddSub _ _) = x
-        f x = AddSub (S.singleton x) S.empty
+        f x = AddSub (M.singleton x 1) M.empty
     subW :: Val -> Val -> Val
     subW = binOp '-' (-) f
       where
         f (AddSub a b) = AddSub b a
-        f x = AddSub S.empty (S.singleton x)
+        f x = AddSub M.empty (M.singleton x 1)
     mulW :: Val -> Val -> Val
     mulW = binOp '*' (*) f
       where
         f x@(MulDiv _ _) = x
-        f x = MulDiv (S.singleton x) S.empty
+        f x = MulDiv (M.singleton x 1) M.empty
     divW :: Val -> Val -> Val
     divW = binOp '/' (/) f
       where
         f (MulDiv a b) = MulDiv b a
-        f x = MulDiv S.empty (S.singleton x)
+        f x = MulDiv M.empty (M.singleton x 1)
