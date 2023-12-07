@@ -5,6 +5,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Writer
   ( Writer,
+    mapWriter,
     runWriter,
     tell,
     writer,
@@ -79,6 +80,8 @@ inverse a m = do
   (gcd, x, _) <- lift $ exEuclid a m
   if gcd == 1 then return $ mod x m else mzero
 
+-- * Countdown number game
+
 type Val = Writer Expr Rational
 
 data Expr
@@ -95,15 +98,17 @@ instance Show Expr where
   show Empty = "EMPTY"
   show (R r) = show r
   show (AddSub a b) =
-    "(" ++ a' ++ (if M.null b then [] else b') ++ ")"
+    a' ++ (if M.null b then [] else b')
     where
       a' = intercalate "+" $ map show $ fromFreq $ M.toList a
       b' = '-' : intercalate "-" (map show $ fromFreq $ M.toList b)
   show (MulDiv a b) =
-    "(" ++ a' ++ (if M.null b then [] else b') ++ ")"
+    a' ++ (if M.null b then [] else b')
     where
-      a' = intercalate "*" $ map show $ fromFreq $ M.toList a
-      b' = '/' : intercalate "/" (map show $ fromFreq $ M.toList b)
+      a' = intercalate "*" $ map show' $ fromFreq $ M.toList a
+      b' = '/' : intercalate "/" (map show' $ fromFreq $ M.toList b)
+      show' a@(AddSub _ _) = "(" ++ show a ++ ")" -- add parenthesis if expression is +/-
+      show' a = show a
 
 instance Semigroup Expr where
   Empty <> x = x
@@ -118,48 +123,63 @@ instance Monoid Expr where
   mempty = Empty
 
 -- | Make the target number using all given numbers
--- countdown :: [Integer] -> Integer -> [String]
-countdown' given target =
-  let seed = map (\v -> tell (R v) >> return (v % 1)) given
-   in S.toList $ S.map show $ S.filter ((== target) . fst . head) $ S.map (map runWriter) $ iterate (S.unions . S.map (S.fromList . concatMap tt . takePairs)) (S.singleton seed) !! (length given - 1)
+-- returns all possible solutions
+--
+-- >>> countdown' 4 [2,5,10,23]
+-- ["4 = (23-5-10)/2","4 = (5+23)/2-10","4 = 5*10-2*23"]
+countdown' :: Integer -> [Integer] -> [String]
+countdown' _ [] = []
+countdown' target given =
+  let seed = S.singleton $ map (\v -> writer (v % 1, R v)) given
+   in map printResult $ S.toList $ S.filter ((== fromIntegral target) . fst) $ S.map (head . map runWriter) $ iterate (S.unions . S.map (S.fromList . concatMap applyOp . takePairs)) seed !! (length given - 1)
   where
-    takeOne :: [Val] -> [(Val, [Val])]
-    takeOne (l : ls) = (l, ls) : map (second (l :)) (takeOne ls)
-    takeOne [] = []
     takePairs :: [Val] -> [(Val, Val, [Val])]
-    takePairs (l : ls) = map (\(a, s) -> (l, a, s)) (takeOne ls) ++ map (\(a, b, s) -> (a, b, l : s)) (takePairs ls)
     takePairs [] = []
-    tt :: (Val, Val, [Val]) -> [[Val]]
-    tt (a, b, ls) =
+    takePairs (l : ls) = takeL ++ dropL
+      where
+        takeOne (l' : ls') = (l', ls') : map (second (l' :)) (takeOne ls')
+        takeOne [] = []
+        takeL = map (\(a, s) -> (l, a, s)) (takeOne ls)
+        dropL = map (\(a, b, s) -> (a, b, l : s)) (takePairs ls)
+    applyOp :: (Val, Val, [Val]) -> [[Val]]
+    applyOp (a, b, ls) =
       [ a `addW` b : ls,
         a `subW` b : ls,
         b `subW` a : ls,
         a `mulW` b : ls
       ]
-        ++ [a `divW` b : ls | (fst . runWriter) b /= 0]
+        ++ [a `divW` b : ls | (fst . runWriter) b /= 0] -- avoid divide-by-zero
         ++ [b `divW` a : ls | (fst . runWriter) a /= 0]
-    binOp :: Char -> (Rational -> Rational -> Rational) -> (Expr -> Expr) -> Val -> Val -> Val
-    binOp c op f a b =
-      let (aa, aw) = runWriter a
-          (ba, bw) = runWriter b
-       in writer (aa `op` ba, aw <> f bw)
+    binOp :: (Rational -> Rational -> Rational) -> (Expr -> Expr) -> Val -> Val -> Val
+    binOp op f a b = do
+      a' <- a
+      b' <- mapWriter (second f) b
+      return $ op a' b'
     addW :: Val -> Val -> Val
-    addW = binOp '+' (+) f
+    addW = binOp (+) f
       where
         f x@(AddSub _ _) = x
         f x = AddSub (M.singleton x 1) M.empty
     subW :: Val -> Val -> Val
-    subW = binOp '-' (-) f
+    subW = binOp (-) f
       where
         f (AddSub a b) = AddSub b a
         f x = AddSub M.empty (M.singleton x 1)
     mulW :: Val -> Val -> Val
-    mulW = binOp '*' (*) f
+    mulW = binOp (*) f
       where
         f x@(MulDiv _ _) = x
         f x = MulDiv (M.singleton x 1) M.empty
     divW :: Val -> Val -> Val
-    divW = binOp '/' (/) f
+    divW = binOp (/) f
       where
         f (MulDiv a b) = MulDiv b a
         f x = MulDiv M.empty (M.singleton x 1)
+    printResult (_, rhs) = show target ++ " = " ++ show rhs
+
+-- | Make the target number using given numbers (not necessary all of them)
+--
+-- >>> countdown 18 [1,2,4,8,16]
+-- ["18 = (1+8)*2", "18 = (1+4)*2+8", "18 = (1+8)*(4-2)", ... , "18 = 8/4-16/(1-2)"]
+countdown :: Integer -> [Integer] -> [String]
+countdown target given = concatMap (countdown' target) (subsequences given)
