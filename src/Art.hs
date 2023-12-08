@@ -1,4 +1,4 @@
-module Art (sier, siern, hitomezashi, binaryWave, rule110) where
+module Art (sier, siern, hitomezashi, binaryWave, rule110, toothpick) where
 
 import Data.Bits
 import System.Random
@@ -124,6 +124,24 @@ data Cells c = Cells [c] c [c]
 instance Functor Cells where
   fmap f (Cells ls c rs) = Cells (fmap f ls) (f c) (fmap f rs)
 
+newtype Cells2D a = Cells2D (Cells (Cells a))
+
+instance Functor Cells2D where
+  fmap f (Cells2D (Cells l c r)) = Cells2D (Cells (fmap (fmap f) l) (fmap f c) (fmap (fmap f) r))
+
+duplicate2D :: Cells2D a -> Cells2D (Cells2D a)
+duplicate2D cc = Cells2D $ Cells (tail $ iterate (fmap shiftDown) center) center (tail $ iterate (fmap shiftUp) center)
+  where
+    center = Cells (tail $ iterate shiftRight cc) cc (tail $ iterate shiftLeft cc)
+    shiftLeft' (Cells ls c (r : rs)) = Cells (c : ls) r rs
+    shiftLeft' _ = error "list not infinite in shiftLeft'"
+    shiftRight' (Cells (l : ls) c rs) = Cells ls l (c : rs)
+    shiftRight' _ = error "list not infinite in shiftRight'"
+    shiftUp (Cells2D cs) = Cells2D $ shiftLeft' cs
+    shiftDown (Cells2D cs) = Cells2D $ shiftRight' cs
+    shiftRight (Cells2D cs) = Cells2D $ fmap shiftRight' cs
+    shiftLeft (Cells2D cs) = Cells2D $ fmap shiftLeft' cs
+
 -- | https://en.wikipedia.org/wiki/Rule_110
 -- seed is the pattern of the top row
 --
@@ -167,3 +185,46 @@ rule110 width height seed = fmap showCells $ take height $ iterate (fmap extract
         shiftRight (Cells (l : ls) c rs) = Cells ls l (c : rs)
     extract :: Cells Bool -> Bool
     extract (Cells (l : ls) c (r : rs)) = not (l && c && r) && (c || r)
+
+data Toothpick = None | Hori | Vert
+  deriving (Eq)
+
+-- | Graphics for toothpick sequence
+-- https://oeis.org/A139250/a139250.anim.html
+--
+-- >>> putStrLn $ unlines $ toothpick 8
+-- ╶┬─┬─┬─┬╴
+--  ├┬┤ ├┬┤
+--  │├┼─┼┤│
+--  ├┴┼┬┼┴┤
+--  │ │││ │
+--  ├┬┼┴┼┬┤
+--  │├┼─┼┤│
+--  ├┴┤ ├┴┤
+-- ╶┴─┴─┴─┴╴
+toothpick :: Int -> [String]
+toothpick 0 = []
+toothpick n = draw $ iterate (fmap extract . duplicate2D) seed !! (n - 1)
+  where
+    seed =
+      Cells2D
+        ( Cells
+            (repeat (Cells (repeat None) None (repeat None)))
+            (Cells (repeat None) Vert (repeat None))
+            (repeat (Cells (repeat None) None (repeat None)))
+        )
+    extract :: Cells2D Toothpick -> Toothpick
+    extract (Cells2D (Cells _ (Cells (l : _) None (r : _)) _))
+      | l == Hori && r == None || l == None && r == Hori = Vert
+    extract (Cells2D (Cells (Cells _ u _ : _) (Cells _ None _) (Cells _ d _ : _)))
+      | u == Vert && d == None || u == None && d == Vert = Hori
+    extract (Cells2D (Cells _ (Cells _ c _) _)) = c
+    draw cells = cutCells2D (div (n + 1) 2) (draw' <$> duplicate2D cells)
+      where
+        draw' (Cells2D (Cells (Cells _ u _ : _) (Cells _ Hori _) (Cells _ d _ : _))) = (if u == None then ['─', '┬'] else ['┴', '┼']) !! (if d == None then 0 else 1)
+        draw' (Cells2D (Cells _ ((Cells (l : _) Vert (r : _))) _)) = (if l == None then ['│', '├'] else ['┤', '┼']) !! (if r == None then 0 else 1)
+        draw' (Cells2D (Cells (Cells _ u _ : _) (Cells (l : _) c (r : _)) (Cells _ d _ : _))) =
+          [' ', '╴', '╷', '┐', '╶', '─', '┌', '┬', '╵', '┘', '│', '┤', '└', '┴', '├', '┼'] !! ((if u == Vert then 8 else 0) + (if r == Hori then 4 else 0) + (if d == Vert then 2 else 0) + (if l == Hori then 1 else 0))
+        cutCells2D x (Cells2D (Cells us cs ds)) = map (cutCells x) $ reverse (take x us) ++ [cs] ++ take x ds
+          where
+            cutCells x (Cells l c r) = reverse (take x l) ++ [c] ++ take x r
