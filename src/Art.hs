@@ -1,6 +1,10 @@
-module Art (sier, siern, hitomezashi, binaryWave, rule110, toothpick) where
+module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, toothpick) where
 
+import Control.Monad (foldM)
+import Control.Monad.ST
 import Data.Bits
+import Data.Maybe (isNothing)
+import qualified Data.Union.ST as U
 import System.Random
 
 -- >>> putStrLn $ unlines $ sier 3
@@ -118,6 +122,52 @@ binaryWave i = map drawLine $ binaryRep i
     drawSegment False True = "_/"
     drawSegment True False = "‾\\"
     drawSegment True True = "‾‾"
+
+-- pattern of slashes and backslashes that doesn't form a loop
+-- https://en.wikipedia.org/wiki/Gokigen_Naname
+-- https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/slant.html
+--
+-- >>> putStrLn $ unlines $ slant 20 10 1
+-- ╲╲╱╱╲╲╲╲╱╱╱╲╲╱╱╱╲╱╲╲
+-- ╱╲╱╲╲╲╱╱╲╱╲╲╱╲╲╲╲╲╲╲
+-- ╲╲╱╲╱╱╲╱╱╱╲╲╲╲╲╲╲╲╲╲
+-- ╲╱╱╲╲╱╱╲╲╱╱╱╲╱╱╲╲╲╲╱
+-- ╲╱╲╲╲╲╱╲╱╲╲╱╲╲╲╲╲╱╱╲
+-- ╱╲╲╲╲╱╱╱╱╲╱╲╲╲╱╲╲╲╲╲
+-- ╲╲╱╲╱╱╱╲╱╲╱╲╱╱╱╱╱╲╱╱
+-- ╲╱╲╲╱╱╲╲╱╲╲╲╲╲╲╲╱╲╱╲
+-- ╱╱╱╱╱╲╲╱╱╲╱╲╲╱╱╲╱╱╲╲
+-- ╲╲╲╲╱╱╱╱╲╲╲╲╱╲╱╲╲╱╲╲
+slant :: Int -> Int -> Int -> [[Char]]
+slant width height seed =
+  let randomList = zip [0 .. width * height - 1] (randoms $ mkStdGen seed) -- TODO make this actually random
+      newDsf = U.new (width' * height') ()
+   in draw $ runST $ newDsf >>= slant' randomList
+  where
+    width' = width + 1
+    height' = height + 1
+    slant' :: [(Int, Bool)] -> U.UnionST s () -> ST s [(Int, Bool)]
+    -- TODO fold?
+    slant' ((index, slash) : ls) dsf = do
+      -- check if a loop will be formed
+      res <-
+        ( if slash -- True for backslash '\', False for slash '/'
+            then U.merge dsf (\_ _ -> ((), ())) (h * width' + w) ((h + 1) * width' + w + 1)
+            else U.merge dsf (\_ _ -> ((), ())) (h * width' + w + 1) ((h + 1) * width' + w)
+          )
+      -- finish the rest
+      l <- slant' ls dsf
+      return $ (if isNothing res then (index, not slash) else (index, slash)) : l
+      where
+        w = mod index width
+        h = div index width
+    slant' _ _ = return []
+    draw = chunks . map (\(_, b) -> if b then '╲' else '╱') -- not ascii slashes for prettier printing
+      where
+        chunks [] = []
+        chunks ls = let (as, bs) = splitAt width ls in as : chunks bs
+
+-- * Functions that use cellular automaton
 
 data Cells c = Cells [c] c [c]
 
