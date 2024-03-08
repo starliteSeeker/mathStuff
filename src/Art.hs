@@ -1,4 +1,4 @@
-module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, toothpick) where
+module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick) where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -224,7 +224,7 @@ duplicate2D cc = Cells2D $ Cells (tail $ iterate (fmap shiftDown) center) center
     shiftLeft (Cells2D cs) = Cells2D $ fmap shiftLeft' cs
 
 -- | https://en.wikipedia.org/wiki/Rule_110
--- seed is the pattern of the top row
+-- The most famous elementary cellular automata
 --
 -- >>> putStrLn $ unlines $ rule110 36 20 0x123456789
 --    @  @   @@ @   @ @ @@  @@@@   @  @
@@ -248,7 +248,31 @@ duplicate2D cc = Cells2D $ Cells (tail $ iterate (fmap shiftDown) center) center
 -- @@@@@@@ @@  @@@  @@@@@      @@@    @
 -- @     @@@@ @@ @ @@   @     @@ @   @@
 rule110 :: Int -> Int -> Integer -> [String]
-rule110 width height seed = fmap showCells $ take height $ iterate (fmap extract . duplicate) seedCells
+rule110 = cellAutomata 110
+
+-- | 1D cell automata
+-- Seed is the pattern of the top row
+-- https://mathworld.wolfram.com/ElementaryCellularAutomaton.html
+--
+-- >>> putStrLn $ unlines $ cellAutomata 13 32 16 0x00008000
+--                 @
+-- @@@@@@@@@@@@@@@ @ @@@@@@@@@@@@@@
+--                 @ @
+-- @@@@@@@@@@@@@@@ @ @ @@@@@@@@@@@@
+--                 @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @@@@@@@@@@
+--                 @ @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @ @@@@@@@@
+--                 @ @ @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @ @ @@@@@@
+--                 @ @ @ @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @ @ @ @@@@
+--                 @ @ @ @ @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @ @ @ @ @@
+--                 @ @ @ @ @ @ @ @
+-- @@@@@@@@@@@@@@@ @ @ @ @ @ @ @ @
+cellAutomata :: Int -> Int -> Int -> Integer -> [String]
+cellAutomata rule width height seed = fmap showCells $ take height $ iterate (fmap extract . duplicate) seedCells
   where
     -- create starting cells from seed
     f 0 _ = []
@@ -265,7 +289,7 @@ rule110 width height seed = fmap showCells $ take height $ iterate (fmap extract
         shiftLeft (Cells ls c (r : rs)) = Cells (c : ls) r rs
         shiftRight (Cells (l : ls) c rs) = Cells ls l (c : rs)
     extract :: Cells Bool -> Bool
-    extract (Cells (l : ls) c (r : rs)) = not (l && c && r) && (c || r)
+    extract (Cells (l : _) c (r : _)) = testBit rule ((if l then 4 else 0) + (if c then 2 else 0) + (if r then 1 else 0))
 
 data Toothpick = None | Hori | Vert
   deriving (Eq)
