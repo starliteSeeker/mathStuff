@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick) where
 
 import Control.Monad (foldM, forM)
@@ -60,15 +62,15 @@ siern n x = padLeft $ map g $ take h $ iterate ((1 :) . f) [1]
 -- _| |_   _| |_| |_   _  |_|  _   _|  _| |
 --   _  |_|  _   _  |_| |_   _| |_|  _|  _
 hitomezashi :: Int -> Int -> Int -> [String]
-hitomezashi width height seed = pattern a b
+hitomezashi width height seed = draw a b
   where
     -- generate random list
     rng = randoms (mkStdGen seed)
     (b, r1) = splitAt width rng
     (a, _) = splitAt height r1
     -- create pattern
-    pattern :: [Bool] -> [Bool] -> [String]
-    pattern a b = zipWith merge hori vert
+    draw :: [Bool] -> [Bool] -> [String]
+    draw a b = zipWith merge hori vert
     vert = foldr (zipWith (:) . f '|' height) (repeat []) b
     hori = map (f '_' (width * 2)) a
     -- n element list of c's and ' 's, s is offset
@@ -150,7 +152,7 @@ shuffle xs gen =
   where
     n = length xs
     newArray :: Int -> [a] -> ST s (STArray s Int a)
-    newArray n xs = newListArray (1, n) xs
+    newArray n = newListArray (1, n)
 
 -- | Pattern of slashes and backslashes that doesn't form a loop, inspired by slant the puzzle game
 -- https://en.wikipedia.org/wiki/Gokigen_Naname
@@ -206,6 +208,8 @@ instance Functor Cells where
   fmap f (Cells ls c rs) = Cells (fmap f ls) (f c) (fmap f rs)
 
 newtype Cells2D a = Cells2D (Cells (Cells a))
+
+pattern Neighbors2D u l c r d <- Cells2D (Cells (Cells _ u _ : _) (Cells (l : _) c (r : _)) (Cells _ d _ : _))
 
 instance Functor Cells2D where
   fmap f (Cells2D (Cells l c r)) = Cells2D (Cells (fmap (fmap f) l) (fmap f c) (fmap (fmap f) r))
@@ -319,16 +323,16 @@ toothpick n = draw $ iterate (fmap extract . duplicate2D) seed !! (n - 1)
             (repeat (Cells (repeat None) None (repeat None)))
         )
     extract :: Cells2D Toothpick -> Toothpick
-    extract (Cells2D (Cells _ (Cells (l : _) None (r : _)) _))
+    extract (Neighbors2D _ l None r _)
       | l == Hori && r == None || l == None && r == Hori = Vert
-    extract (Cells2D (Cells (Cells _ u _ : _) (Cells _ None _) (Cells _ d _ : _)))
+    extract (Neighbors2D u _ None _ d)
       | u == Vert && d == None || u == None && d == Vert = Hori
-    extract (Cells2D (Cells _ (Cells _ c _) _)) = c
+    extract (Neighbors2D _ _ c _ _) = c
     draw cells = cutCells2D (div (n + 1) 2) (draw' <$> duplicate2D cells)
       where
-        draw' (Cells2D (Cells (Cells _ u _ : _) (Cells _ Hori _) (Cells _ d _ : _))) = (if u == None then ['─', '┬'] else ['┴', '┼']) !! (if d == None then 0 else 1)
-        draw' (Cells2D (Cells _ ((Cells (l : _) Vert (r : _))) _)) = (if l == None then ['│', '├'] else ['┤', '┼']) !! (if r == None then 0 else 1)
-        draw' (Cells2D (Cells (Cells _ u _ : _) (Cells (l : _) c (r : _)) (Cells _ d _ : _))) =
+        draw' (Neighbors2D u _ Hori _ d) = (if u == None then ['─', '┬'] else ['┴', '┼']) !! (if d == None then 0 else 1)
+        draw' (Neighbors2D _ l Vert r _) = (if l == None then ['│', '├'] else ['┤', '┼']) !! (if r == None then 0 else 1)
+        draw' (Neighbors2D u l None r d) =
           [' ', '╴', '╷', '┐', '╶', '─', '┌', '┬', '╵', '┘', '│', '┤', '└', '┴', '├', '┼'] !! ((if u == Vert then 8 else 0) + (if r == Hori then 4 else 0) + (if d == Vert then 2 else 0) + (if l == Hori then 1 else 0))
         cutCells2D x (Cells2D (Cells us cs ds)) = map (cutCells x) $ reverse (take x us) ++ [cs] ++ take x ds
           where
