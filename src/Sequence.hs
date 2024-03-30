@@ -1,8 +1,11 @@
 module Sequence where
 
 import Control.Applicative
+import Data.Function (fix)
 import Data.List (find)
 import Data.Maybe (fromJust)
+import Data.Word (Word64)
+import System.Random
 
 -- * Sequences
 
@@ -82,3 +85,32 @@ totient :: Int -> Int
 totient n = product $ map g $ factor n
   where
     g (p, n) = (p - 1) * p ^ (n - 1)
+
+-- Miller-Rabin primality test
+-- https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test
+-- for values under 64-bits, result is deterministic and seed is not used
+--
+-- >>> [n | n <- [1..20], millerRabin undefined n]
+-- [2,3,5,7,11,13,17,19]
+-- >>> millerRabin 1 (14710351489 * 49021259447)
+-- False
+-- >>> millerRabin 1 5376136917648529903181
+-- True
+millerRabin :: Int -> Integer -> Bool
+millerRabin seed n
+  | n <= 1 = False
+  | nIsSmall && n `elem` bases = True
+  | otherwise = all round bases
+  where
+    nIsSmall = fromIntegral n <= (maxBound :: Word64)
+    (a, b) = fix (\v (n, r) -> if odd r then (n, r) else v (n + 1, div r 2)) (0, n - 1) -- n-1 = 2^a * b
+    bases
+      | nIsSmall = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37] -- deterministic
+      | otherwise = take 20 $ randomRs (2, n - 1) (mkStdGen seed) -- probabilistic
+    round base = start == 1 || elem (n - 1) (take a $ iterate (`modExp` 2) start)
+      where
+        start = base `modExp` b
+    modExp x y
+      | y == 0 = 1
+      | odd y = (x * modExp x (y - 1)) `mod` n
+      | otherwise = modExp (x ^ 2 `mod` n) (div y 2)
