@@ -1,6 +1,8 @@
 module Sequence where
 
 import Control.Applicative
+import Control.Monad.ST (ST, runST)
+import Data.Array.ST
 import Data.Function (fix)
 import Data.List (find)
 import Data.Maybe (fromJust)
@@ -114,3 +116,26 @@ millerRabin seed n
       | y == 0 = 1
       | odd y = (x * modExp x (y - 1)) `mod` n
       | otherwise = modExp (x ^ 2 `mod` n) (div y 2)
+
+-- | Partition numbers
+--
+-- >>> map partitionNumbers [0..10]
+-- [1,1,2,3,5,7,11,15,22,30,42]
+partitionNumbers :: Int -> Int
+partitionNumbers n = runST $ do
+  arr <- newListArray ((1, 1), (n, n)) (replicate (n + 1) 1 ++ replicate (n * (n + 1)) (-1))
+  part arr (n, n)
+  where
+    -- ways of partitioning target with numbers 1..maxVal
+    part :: STUArray s (Int, Int) Int -> (Int, Int) -> ST s Int
+    part _ (0, _) = return 1
+    part arr idx@(target, maxVal) = do
+      curr <- readArray arr idx
+      if curr == -1
+        then do
+          -- calculate
+          val <- sum <$> mapM (\a -> part arr (target - a, a)) [1 .. min target maxVal]
+          -- memo
+          writeArray arr idx val
+          return val
+        else return curr
