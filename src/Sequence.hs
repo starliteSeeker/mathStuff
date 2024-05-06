@@ -139,3 +139,16 @@ partitionNumbers n = runST $ do
           writeArray arr idx val
           return val
         else return curr
+
+-- Ways to put n queens on an nxn board without attacking each other
+--
+-- >>> map nonattackingQueens [0..10]
+-- [1,1,0,0,2,10,4,40,92,352,724]
+nonattackingQueens :: Int -> Int
+nonattackingQueens n = length $ foldr addCol [[]] [1 .. n]
+  where
+    addCol j xss = [(i, j) : xs | xs <- xss, i <- [1 .. n], safe (i, j) xs]
+    safe (i, j) = all safe'
+      where
+        -- no need to check vertical position
+        safe' (ii, jj) = i /= ii && jj - j /= ii - i && i + j /= ii + jj
