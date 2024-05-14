@@ -4,7 +4,7 @@ import Control.Applicative
 import Control.Monad.ST (ST, runST)
 import Data.Array.ST
 import Data.Function (fix)
-import Data.List (find)
+import Data.List (find, group)
 import Data.Maybe (fromJust)
 import Data.Word (Word64)
 import System.Random
@@ -61,6 +61,18 @@ prime = 2 : 3 : 5 : iterate prime' 7
 -- [1,1,2,5,14,42,132,429,1430,4862]
 catalan :: [Int]
 catalan = 1 : map (\n -> (4 * n - 2) * (catalan !! (n - 1)) `div` (n + 1)) [1 ..]
+
+-- | Sum of squares
+-- offset 1
+-- Numbers that can be written as the form i^2 + j^2
+-- i and j can be 0
+--
+-- >>> take 10 $ sumOfSquares
+-- [0,1,2,4,5,8,9,10,13,16]
+sumOfSquares :: [Int]
+sumOfSquares = map head $ group $ sort2D listOfLists
+  where
+    listOfLists = [[i * i + j * j | j <- [i ..]] | i <- [0 ..]]
 
 -- * Functions
 
@@ -152,3 +164,19 @@ nonattackingQueens n = length $ foldr addCol [[]] [1 .. n]
       where
         -- no need to check vertical position
         safe' (ii, jj) = i /= ii && jj - j /= ii - i && i + j /= ii + jj
+
+-- * Helper functions
+
+-- | Sort a 2D list that are nondecreasing in both directions
+sort2D :: [[Int]] -> [Int]
+sort2D (xs : xss) = sort2D' [xs] xss
+  where
+    -- head of all lists in pool and first element in leftover are candidates
+    sort2D' pool leftover@((leftoverMin : ls) : lss)
+      | poolMin <= leftoverMin = poolMin : sort2D' (newPool pool) leftover
+      | otherwise = leftoverMin : sort2D' (ls : pool) lss
+      where
+        poolMin = minimum $ map head pool
+        newPool (xx@(x : xs) : xss)
+          | x == poolMin = xs : xss
+          | otherwise = xx : newPool xss
