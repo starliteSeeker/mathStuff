@@ -74,6 +74,16 @@ sumOfSquares = map head $ group $ sort2D listOfLists
   where
     listOfLists = [[i * i + j * j | j <- [i ..]] | i <- [0 ..]]
 
+-- | Golomb's sequence
+-- smallest nondecreasing sequence where
+-- `golomb == map length (group golomb)`
+-- starting with 1
+--
+-- >>> take 20 golomb
+-- [1,2,2,3,3,4,4,4,5,5,5,6,6,6,6,7,7,7,7,8]
+golomb :: [Int]
+golomb = 1 : 2 : 2 : concat (zipWith replicate (drop 2 golomb) [3 ..])
+
 -- * Functions
 
 -- | Factor a number
