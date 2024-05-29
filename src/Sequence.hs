@@ -14,7 +14,7 @@ import System.Random
 
 -- | Metallonacci numbers
 -- a_n = a_(n-1) * m + a_(n - 2)
--- offset 0
+-- sequence starts with 0, 1 ...
 --
 -- >>> take 10 $ mfib 2
 -- [0,1,2,5,12,29,70,169,408,985]
@@ -23,8 +23,8 @@ mfib m = 0 : 1 : zipWith (+) (fmap (* m) $ drop 1 $ mfib m) (mfib m)
 
 -- | Fibonacci numbers
 -- a_n = a_ (n - 1) + a_ (n - 2)
+-- sequence starts with 0, 1 ...
 -- Metallonacci numbers where m = 1
--- offset 0
 --
 -- >>> take 10 $ fib
 -- [0,1,1,2,3,5,8,13,21,34]
@@ -43,7 +43,6 @@ nfib 0 = repeat 0
 nfib n = replicate (n - 1) 0 ++ [1] ++ foldr1 (zipWith (+)) (take n $ iterate (drop 1) (nfib n))
 
 -- | Prime numbers
--- offset 1
 --
 -- >>> take 10 $ prime
 -- [2,3,5,7,11,13,17,19,23,29]
@@ -55,7 +54,6 @@ prime = 2 : 3 : 5 : iterate prime' 7
     prime' p = fromJust $ find (\n -> all (\a -> mod n a /= 0) (takeWhile (<= (floor . sqrt . fromIntegral) n) prime)) [p + 2, p + 4 ..]
 
 -- | Catalan numbers
--- offset 0
 -- a(n) = 2*(2*n-1)*a(n-1)/(n+1) with a(0) = 1 - OEIS A000108
 --
 -- >>> take 10 $ catalan
@@ -64,7 +62,6 @@ catalan :: [Int]
 catalan = 1 : map (\n -> (4 * n - 2) * (catalan !! (n - 1)) `div` (n + 1)) [1 ..]
 
 -- | Sum of squares
--- offset 1
 -- Numbers that can be written as the form i^2 + j^2
 -- i and j can be 0
 --
