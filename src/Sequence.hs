@@ -4,6 +4,7 @@ import Control.Applicative
 import Control.Monad.ST (ST, runST)
 import Data.Array.ST
 import Data.Function (fix)
+import qualified Data.IntMap.Lazy as IM
 import Data.List (find, group)
 import Data.Maybe (fromJust)
 import Data.Word (Word64)
@@ -83,6 +84,20 @@ sumOfSquares = map head $ group $ sort2D listOfLists
 -- [1,2,2,3,3,4,4,4,5,5,5,6,6,6,6,7,7,7,7,8]
 golomb :: [Int]
 golomb = 1 : 2 : 2 : concat (zipWith replicate (drop 2 golomb) [3 ..])
+
+-- | Terms of smallest positive integers so that
+-- no three terms a(n) a(n - d) a(n - 2d) form a arithmetic sequence
+--
+-- >>> take 20 forestFire
+-- [1,1,2,1,1,2,2,4,4,1,1,2,1,1,2,2,4,4,2,4]
+forestFire :: [Int]
+forestFire = map fire [0 ..]
+  where
+    fire n = head [c | c <- [1 ..], not $ any (isArithmetic c n) [1 .. div n 2]]
+    isArithmetic c n d = b - a == c - b
+      where
+        b = forestFire !! (n - d)
+        a = forestFire !! (n - 2 * d)
 
 -- * Functions
 
