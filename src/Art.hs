@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick) where
+module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve') where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -8,6 +8,7 @@ import Data.Array.ST
 import qualified Data.Array.Unboxed as UArr
 import Data.Bits
 import Data.Foldable (toList)
+import Data.List (transpose)
 import Data.Maybe (isNothing)
 import Data.STRef
 import qualified Data.Union.ST as U
@@ -199,6 +200,39 @@ slant width height seed =
         toSlash False = '╱'
         chunks [] = []
         chunks ls = let (as, bs) = splitAt width ls in as : chunks bs
+
+-- | Peano curve with ascii characters
+-- https://en.wikipedia.org/wiki/Peano_curve
+--
+-- >>> putStrLn $ unlines $ peanoCurve 2
+--  _   _   _   _
+-- | | | | | | | | |
+-- | |_| |_| | | |_|
+-- |  _   _  | |  _
+-- | | | | | | | | |
+-- |_| | | |_| |_| |
+--  _  | |  _   _  |
+-- | | | | | | | | |
+-- | |_| |_| |_| |_|
+peanoCurve' 1 = [" _   ", "| | |", "| |_|"]
+peanoCurve' n = map (foldl1 (++)) $ transpose layout
+  where
+    -- copies of last iteration, flipped or connected vertically above
+    last = peanoCurve' (n - 1)
+    last' = map reverse lastRev'
+    lastRev = map reverse last
+    lastRev' = let ((_ : x) : xs) = lastRev in ('|' : x) : xs
+    -- insert spaces with horizontal connection
+    spacing = "_" : replicate (3 ^ n - 1) " "
+    spacing' = reverse spacing
+    -- final layout from left to right
+    layout =
+      [ last ++ lastRev' ++ last',
+        spacing,
+        lastRev ++ last' ++ lastRev',
+        spacing',
+        last ++ lastRev' ++ last'
+      ]
 
 -- * Functions that use cellular automaton
 
