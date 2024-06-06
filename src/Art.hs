@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve') where
+module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve') where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -12,6 +12,7 @@ import Data.List (transpose)
 import Data.Maybe (isNothing)
 import Data.STRef
 import qualified Data.Union.ST as U
+import Internal
 import System.Random
 
 -- >>> putStrLn $ unlines $ sier 3
@@ -193,16 +194,54 @@ slant width height seed =
         w = mod index width
         h = div index width
     draw :: [(Int, Bool)] -> [[Char]]
-    draw ls = chunks $ map toSlash $ UArr.elems (UArr.array (0, width * height - 1) ls :: UArr.UArray Int Bool)
+    draw ls = chunks width $ map toSlash $ collect (0, width * height - 1) ls
       where
         -- not ascii slashes for prettier printing
         toSlash True = '╲'
         toSlash False = '╱'
-        chunks [] = []
-        chunks ls = let (as, bs) = splitAt width ls in as : chunks bs
+
+-- | Peano curve
+-- https://en.wikipedia.org/wiki/Peano_curve
+--
+-- >>> putStrLn $ unlines $ peanoCurve 2
+-- ┌┐┌┐┌┐┌┐│
+-- │││││││││
+-- │└┘└┘││└┘
+-- │┌┐┌┐││┌┐
+-- │││││││││
+-- └┘││└┘└┘│
+-- ┌┐││┌┐┌┐│
+-- │││││││││
+-- │└┘└┘└┘└┘
+peanoCurve :: Int -> [String]
+peanoCurve n = draw $ U : path n ++ [U]
+  where
+    side = 3 ^ n
+    interleave = concat . transpose
+    -- direction of the peano curve path
+    path 1 = [U, U, R, D, D, R, U, U]
+    path n = concat $ interleave [[e, x e, e, y e, x $ y e, y e, e, x e, e], [[a] | a <- path 1]]
+      where
+        e = path (n - 1)
+        x = map (\a -> if a == R then L else if a == L then R else a)
+        y = map (\a -> if a == U then D else if a == D then U else a)
+    -- map direction to characters
+    draw ls = chunks side $ collect ((0, 0), (side - 1, side - 1)) $ draw' (side - 1, 0) ls
+    draw' (y, x) (a : ls@(b : _)) = case (a, b) of
+      (U, U) -> ((y, x), '│') : draw' (y - 1, x) ls
+      (R, U) -> ((y, x), '┘') : draw' (y - 1, x) ls
+      (L, U) -> ((y, x), '└') : draw' (y - 1, x) ls
+      (D, D) -> ((y, x), '│') : draw' (y + 1, x) ls
+      (R, D) -> ((y, x), '┐') : draw' (y + 1, x) ls
+      (L, D) -> ((y, x), '┌') : draw' (y + 1, x) ls
+      (U, R) -> ((y, x), '┌') : draw' (y, x + 1) ls
+      (D, R) -> ((y, x), '└') : draw' (y, x + 1) ls
+      (U, L) -> ((y, x), '┐') : draw' (y, x - 1) ls
+      (D, L) -> ((y, x), '┘') : draw' (y, x - 1) ls
+      _ -> error "shouldn't happen"
+    draw' _ _ = []
 
 -- | Peano curve with ascii characters
--- https://en.wikipedia.org/wiki/Peano_curve
 --
 -- >>> putStrLn $ unlines $ peanoCurve 2
 --  _   _   _   _
@@ -214,6 +253,7 @@ slant width height seed =
 --  _  | |  _   _  |
 -- | | | | | | | | |
 -- | |_| |_| |_| |_|
+peanoCurve' :: Int -> [String]
 peanoCurve' 1 = [" _   ", "| | |", "| |_|"]
 peanoCurve' n = map (foldl1 (++)) $ transpose layout
   where
