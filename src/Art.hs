@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve') where
+module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve', hilbertCurve) where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -273,6 +273,62 @@ peanoCurve' n = map (foldl1 (++)) $ transpose layout
         spacing',
         last ++ lastRev' ++ last'
       ]
+
+-- | Hilbert curve
+-- https://en.wikipedia.org/wiki/Hilbert_curve
+--
+-- >>> putStrLn $ unlines $ hilbertCurve 3
+-- ┌┐┌┐┌┐┌┐
+-- │└┘││└┘│
+-- └┐┌┘└┐┌┘
+-- ┌┘└──┘└┐
+-- │┌─┐┌─┐│
+-- └┘┌┘└┐└┘
+-- ┌┐└┐┌┘┌┐
+-- ╵└─┘└─┘╵
+hilbertCurve n = draw $ path n
+  where
+    side = 2 ^ n
+    interleave = concat . transpose
+    path 1 = [U, R, D]
+    path n = concat $ interleave [[map one e, e, e, map two e], [[a] | a <- path 1]]
+      where
+        e = path (n - 1)
+        one U = R
+        one R = U
+        one D = L
+        one L = D
+        two U = L
+        two R = D
+        two D = R
+        two L = U
+    -- convert directions to characters
+    draw ls = chunks side $ collect ((0, 0), (side - 1, side - 1)) $ draw' (side - 1, 0) ls
+    -- special treatment for start of path
+    draw' (y, x) ls@(a : _) = case a of
+      U -> ((y, x), '╵') : draw'' (y - 1, x) ls
+      R -> ((y, x), '╶') : draw'' (y, x + 1) ls
+      L -> ((y, x), '╴') : draw'' (y, x - 1) ls
+      D -> ((y, x), '╷') : draw'' (y + 1, x) ls
+    draw'' (y, x) (a : ls@(b : _)) = case (a, b) of
+      (U, U) -> ((y, x), '│') : draw'' (y - 1, x) ls
+      (R, U) -> ((y, x), '┘') : draw'' (y - 1, x) ls
+      (L, U) -> ((y, x), '└') : draw'' (y - 1, x) ls
+      (D, D) -> ((y, x), '│') : draw'' (y + 1, x) ls
+      (R, D) -> ((y, x), '┐') : draw'' (y + 1, x) ls
+      (L, D) -> ((y, x), '┌') : draw'' (y + 1, x) ls
+      (U, R) -> ((y, x), '┌') : draw'' (y, x + 1) ls
+      (R, R) -> ((y, x), '─') : draw'' (y, x + 1) ls
+      (D, R) -> ((y, x), '└') : draw'' (y, x + 1) ls
+      (U, L) -> ((y, x), '┐') : draw'' (y, x - 1) ls
+      (L, L) -> ((y, x), '─') : draw'' (y, x - 1) ls
+      (D, L) -> ((y, x), '┘') : draw'' (y, x - 1) ls
+      _ -> error "shouldn't happen"
+    -- and special treatment for end of path
+    draw'' p [U] = [(p, '╷')]
+    draw'' p [R] = [(p, '╴')]
+    draw'' p [L] = [(p, '╶')]
+    draw'' p [D] = [(p, '╵')]
 
 -- * Functions that use cellular automaton
 
