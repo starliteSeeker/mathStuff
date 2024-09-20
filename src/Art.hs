@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Art (sier, siern, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve', hilbertCurve) where
+module Art (sier, siern, carpet, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve', hilbertCurve) where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -49,6 +49,34 @@ siern n x = padLeft $ map g $ take h $ iterate ((1 :) . f) [1]
     g _ = []
     -- pad with spaces
     padLeft = zipWith (++) (map (`replicate` ' ') [h - 1, h - 2 .. 0])
+
+-- | Sierpinski carpet
+-- https://en.wikipedia.org/wiki/Sierpi%C5%84ski_carpet
+-- Inspired by https://www.youtube.com/watch?v=Dlslf7cB_5Q
+--
+-- >>> putStrLn $ unlines $ carpet 2
+-- █████████
+-- █ ██ ██ █
+-- █████████
+-- ███   ███
+-- █ █   █ █
+-- ███   ███
+-- █████████
+-- █ ██ ██ █
+-- █████████
+carpet :: Int -> [String]
+carpet x
+  | x < 0 = []
+  | otherwise = map row numbers
+  where
+    -- all numbers from 0 to 3 ^ x - 1, in base 3
+    numbers = iterate ((:) <$> [0, 1, 2] <*>) [[]] !! x
+    -- create row from index
+    row idx = map (check idx) numbers
+    -- check if a pixel should be filled based on row and column
+    check (1 : y) (1 : x) = ' '
+    check (_ : y) (_ : x) = check y x
+    check _ _ = '█'
 
 -- | Inspired by https://youtu.be/JbfhzlMk2eY
 --
