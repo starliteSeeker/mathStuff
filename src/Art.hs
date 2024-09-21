@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Art (sier, siern, carpet, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve', hilbertCurve) where
+module Art (sier, siern, carpet, siern2, hitomezashi, binaryWave, slant, rule110, cellAutomata, toothpick, peanoCurve, peanoCurve', hilbertCurve) where
 
 import Control.Monad (foldM, forM)
 import Control.Monad.ST
@@ -75,6 +75,35 @@ carpet x
     row idx = map (check idx) numbers
     -- check if a pixel should be filled based on row and column
     check (1 : y) (1 : x) = ' '
+    check (_ : y) (_ : x) = check y x
+    check _ _ = '█'
+
+-- | Similar to `siern` but created with different internal logic
+-- Inspired by https://www.youtube.com/watch?v=Dlslf7cB_5Q
+--
+-- >>> putStrLn $ unlines $ siern2 3 2
+-- █
+-- ██
+-- ███
+-- █  █
+-- ██ ██
+-- ██████
+-- █  █  █
+-- ██ ██ ██
+-- █████████
+siern2 :: Int -> Int -> [String]
+siern2 base steps
+  | base <= 0 = []
+  | steps < 0 = []
+  | otherwise = map row numbers
+  where
+    -- all numbers in order from 0 to (base ^ steps - 1)
+    numbers = iterate ((:) <$> [0, 1 .. base - 1] <*>) [[]] !! steps
+    -- create row from index
+    row idx = map (check idx) numbers
+    -- check if a pixel should be filled based on row and column
+    check (y : ys) (x : xs)
+      | x > y = ' '
     check (_ : y) (_ : x) = check y x
     check _ _ = '█'
 
